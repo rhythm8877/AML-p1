@@ -1,0 +1,6 @@
+# Dataset
+ADEChallengeData2016/
+venv/
+__pycache__/
+.DS_Store
+.ipynb_checkpoints/
