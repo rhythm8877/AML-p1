@@ -1,152 +1,197 @@
-================================================================================
-                    FLOOR CLASSIFICATION REPORT
-                    ADE Challenge Dataset Analysis
-================================================================================
+# Floor Classification Report  
+**ADE Challenge 2016 – Floor vs Non-Floor Segmentation**
 
-1. PERFORMANCE OVERVIEW
---------------------------------------------------------------------------------
+---
 
-I implemented and evaluated three different floor–non-floor segmentation 
-approaches on the ADE Challenge 2016 dataset. The quantitative results from 
-the final runs are summarized below.
+## 1. Performance Overview
 
-Table 1: Quantitative Performance Comparison
-+--------------------------------+----------+-----------+--------+-------------+----------------+
-| Approach                       | Accuracy | Precision | Recall | Train Time  | Inference Time |
-+--------------------------------+----------+-----------+--------+-------------+----------------+
-| Pixel-based (RGB)              | 93.92%   | 0.0000    | 0.0000 | 0.0161s     | 0.0006s        |
-| RGB + Spatial (X, Y)           | 93.62%   | 0.0548    | 0.0033 | 0.0395s     | 0.0004s        |
-| Region-based (KMeans + SVM)    | 94.90%   | 0.0000    | 0.0000 | 186.95s    | 0.0486s        |
-+--------------------------------+----------+-----------+--------+-------------+----------------+
+Three different floor–non-floor segmentation approaches were implemented and
+evaluated on the ADE Challenge 2016 dataset. Quantitative results from the final
+runs are summarized below.
 
-Observation on Metrics:
-Despite relatively high accuracy values, some approaches exhibit low precision 
-and recall for the floor class. This indicates a strong class imbalance in the 
-dataset, where the majority of pixels belong to the background (non-floor) class. 
-As a result, the models tend to predict the dominant class for most inputs. 
-While accuracy appears high, it is therefore not always a reliable indicator 
-of true segmentation performance for the minority (floor) class without 
-further tuning (e.g., class weighting or resampling).
+### Table 1: Quantitative Performance Comparison
 
+| Approach                    | Accuracy | Precision | Recall | Train Time | Inference Time |
+|-----------------------------|----------|-----------|--------|------------|----------------|
+| Pixel-based (RGB)           | 93.92%   | 0.0000    | 0.0000 | 0.0161 s   | 0.0006 s       |
+| RGB + Spatial (X, Y)        | 93.62%   | 0.0548    | 0.0033 | 0.0395 s   | 0.0004 s       |
+| Region-based (KMeans + SVM) | 94.90%   | 0.0000    | 0.0000 | 186.95 s  | 0.0486 s       |
 
-2. APPROACH-WISE COMPARISON
---------------------------------------------------------------------------------
+### Observation on Metrics
 
-2.1 Performance Characteristics
+Despite relatively high accuracy values, some approaches exhibit extremely low
+precision and recall for the *floor* class. This indicates a strong class
+imbalance in the dataset, where the majority of pixels belong to the background
+(non-floor) class.
 
-Region-based Approach (KMeans + SVM):
-The region-based method uses KMeans clustering to group pixels into coherent 
-regions before classification. By operating on regions rather than individual 
-pixels, it reduces pixel-level noise and enforces spatial consistency. When a 
-region contains a majority of floor pixels, the entire region is labeled as 
-floor, which eliminates the "salt-and-pepper" artifacts common in pixel-based 
-methods. Features extracted include mean RGB values, color variance, spatial 
-position, and region area fraction.
+As a result, models tend to predict the dominant class for most inputs. Accuracy
+alone is therefore misleading and does **not** reflect true segmentation quality
+for the minority (floor) class without additional techniques such as:
 
-Pixel-based (RGB only):
-This approach achieved competitive accuracy (93.92%) despite its simplicity. 
-It effectively captures dominant background colors but lacks contextual 
-understanding. As a result, it cannot distinguish visually similar regions 
-(e.g., white floors vs. white walls). The model uses only the RGB color values 
-of individual pixels as features, making it extremely fast but less robust.
+- Class weighting  
+- Resampling  
+- Alternative evaluation metrics (IoU, F1-score)
 
-Pixel-based (RGB + Spatial Coordinates):
-Adding spatial features (normalized X, Y coordinates) provides the model with 
-positional information. This can help when floors appear in consistent locations 
-(e.g., lower portion of images). However, if the spatial distribution of floors 
-in the training set does not generalize well to the validation set, performance 
-can degrade due to overfitting to dataset-specific layouts.
+---
 
+## 2. Approach-wise Comparison
 
-2.2 Speed and Computational Cost
+### 2.1 Performance Characteristics
 
-Pixel-based Methods:
-Both pixel-based approaches are extremely fast, with training and inference 
-times in the sub-second range. This is due to the use of LinearSVC, which is 
-optimized for large-scale linear classification problems. These methods are 
-suitable for real-time applications where speed is critical.
+#### Region-based Approach (KMeans + SVM)
 
-Region-based Method:
-The region-based pipeline is significantly slower due to:
-  - Image downscaling for efficiency
-  - KMeans clustering (computationally expensive)
-  - Feature extraction at the region level (mean, std, position, area)
-  - Training the SVM on region features
+- Uses KMeans clustering to group pixels into coherent regions before
+  classification.
+- Reduces pixel-level noise and enforces spatial consistency.
+- When a region contains a majority of floor pixels, the entire region is labeled
+  as floor, eliminating salt-and-pepper artifacts common in pixel-based methods.
 
-However, once the model is trained, inference remains reasonably fast as it 
-only needs to classify regions rather than individual pixels.
+**Region Features:**
+- Mean RGB values
+- Color variance
+- Spatial position
+- Region area fraction
 
+This approach produces smoother, more visually consistent segmentation results.
 
-2.3 Robustness and Generalization
+---
 
-Pixel-based (RGB):
-Least robust. The model relies solely on color information, making it 
-vulnerable to visual ambiguities (e.g., floors and walls with similar colors, 
-varying lighting conditions).
+#### Pixel-based (RGB Only)
 
-Pixel-based (RGB + XY):
-Moderately robust. Spatial features allow the model to learn coarse layout 
-priors (e.g., floors are typically near the bottom of the image), helping 
-disambiguate some cases but risking overfitting to dataset-specific layouts.
+- Achieves competitive accuracy (93.92%) despite its simplicity.
+- Relies solely on RGB values of individual pixels.
+- Extremely fast but lacks contextual understanding.
 
-Region-based:
-Most robust. By operating on regions rather than individual pixels, this 
-method implicitly captures local texture and structure (via mean and variance 
-features). This leads to smoother predictions and greater resistance to 
-pixel-level noise. The spatial coherence enforced by clustering also helps 
-maintain contiguous floor regions.
+**Limitations:**
+- Cannot distinguish visually similar regions (e.g., white floor vs white wall).
+- Sensitive to lighting variations.
 
+---
 
-3. IMPLEMENTATION DETAILS
---------------------------------------------------------------------------------
+#### Pixel-based (RGB + Spatial Coordinates)
 
-Dataset: ADE Challenge 2016
-  - Training images used: 50
-  - Validation images used: 20
-  - Floor class ID: 4
+- Adds normalized spatial coordinates (X, Y) to RGB features.
+- Provides positional awareness (e.g., floors often appear near the bottom).
 
-Method 1 (Pixel-based RGB):
-  - Features: 3 (R, G, B normalized to [0, 1])
-  - Classifier: LinearSVC (C=1.0, max_iter=2000)
-  - Training samples: 50,000
-  - Validation samples: 30,000
+**Trade-off:**
+- Can improve segmentation when layouts are consistent.
+- Risk of overfitting to dataset-specific spatial distributions.
 
-Method 2 (RGB + Spatial):
-  - Features: 5 (R, G, B, X, Y all normalized to [0, 1])
-  - Classifier: LinearSVC (C=1.0, max_iter=3000)
-  - Training samples: 100,000
-  - Validation samples: 20,000
+---
 
-Method 3 (Region-based):
-  - Downscale max dimension: 300 pixels
-  - Clusters per image: 200
-  - Features: 7 (mean R, mean G, mean B, color std sum, mean X, mean Y, area fraction)
-  - Classifier: SVC with linear kernel (C=1.0)
+### 2.2 Speed and Computational Cost
 
+#### Pixel-based Methods
 
-4. SUMMARY
---------------------------------------------------------------------------------
+- Sub-second training and inference times.
+- Powered by `LinearSVC`, optimized for large-scale linear classification.
+- Suitable for real-time or resource-constrained applications.
 
-Overall, the three approaches offer different trade-offs between accuracy, 
-speed, and robustness:
+---
 
-1. Pixel-based (RGB): Fastest method, suitable for real-time applications 
-   where computational resources are limited. Simple to implement but may 
-   struggle with color-ambiguous scenarios.
+#### Region-based Method
 
-2. RGB + Spatial: Adds positional awareness at minimal computational cost. 
-   Can improve performance when floor locations are consistent but may 
-   overfit to specific layouts.
+Significantly slower due to:
+- Image downscaling
+- KMeans clustering
+- Region-level feature extraction
+- SVM training on region features
 
-3. Region-based (KMeans + SVM): Provides the best spatial coherence and 
-   robustness to noise, at the cost of significantly higher training time. 
-   Best suited for offline processing where accuracy is prioritized over speed.
+Once trained, inference remains reasonably fast since classification operates on
+regions instead of individual pixels.
 
-The results also highlight the importance of addressing class imbalance, as 
-accuracy alone can be misleading in segmentation tasks with dominant background 
-classes. Future improvements could include class weighting, data augmentation, 
-or more sophisticated deep learning approaches.
+---
 
-================================================================================
-                              END OF REPORT
-================================================================================
+### 2.3 Robustness and Generalization
+
+| Method                | Robustness |
+|----------------------|------------|
+| Pixel-based (RGB)    | Low        |
+| RGB + Spatial (XY)   | Moderate   |
+| Region-based         | High       |
+
+- **Pixel-based (RGB):** Highly sensitive to color ambiguity and lighting.
+- **RGB + XY:** Learns layout priors but may fail on unseen distributions.
+- **Region-based:** Most robust due to spatial coherence and aggregated features.
+
+---
+
+## 3. Implementation Details
+
+### Dataset
+- **Dataset:** ADE Challenge 2016
+- **Training Images:** 50
+- **Validation Images:** 20
+- **Floor Class ID:** 4
+
+---
+
+### Method 1: Pixel-based (RGB)
+
+- **Features:** 3 (R, G, B normalized to [0, 1])
+- **Classifier:** `LinearSVC`
+- **C:** 1.0
+- **Max Iterations:** 2000
+- **Training Samples:** 50,000
+- **Validation Samples:** 30,000
+
+---
+
+### Method 2: Pixel-based (RGB + Spatial)
+
+- **Features:** 5 (R, G, B, X, Y normalized to [0, 1])
+- **Classifier:** `LinearSVC`
+- **C:** 1.0
+- **Max Iterations:** 3000
+- **Training Samples:** 100,000
+- **Validation Samples:** 20,000
+
+---
+
+### Method 3: Region-based (KMeans + SVM)
+
+- **Max Image Dimension:** 300 px
+- **Clusters per Image:** 200
+- **Features (7):**
+  - Mean R
+  - Mean G
+  - Mean B
+  - Color standard deviation (sum)
+  - Mean X
+  - Mean Y
+  - Area fraction
+- **Classifier:** `SVC` (Linear Kernel)
+- **C:** 1.0
+
+---
+
+## 4. Summary
+
+Each approach presents a clear trade-off between speed, robustness, and accuracy:
+
+1. **Pixel-based (RGB):**
+   - Fastest and simplest.
+   - Suitable for real-time applications.
+   - Struggles with visual ambiguity.
+
+2. **RGB + Spatial:**
+   - Adds positional awareness at minimal cost.
+   - May overfit to dataset-specific layouts.
+
+3. **Region-based (KMeans + SVM):**
+   - Best spatial coherence and robustness.
+   - Significantly higher training time.
+   - Suitable for offline processing.
+
+### Key Takeaway
+
+High accuracy alone is misleading in segmentation tasks with severe class
+imbalance. Precision, recall, and region-level consistency provide a more
+meaningful evaluation.
+
+**Future Improvements:**
+- Class weighting
+- Data augmentation
+- Deep learning-based segmentation models
+
+---
